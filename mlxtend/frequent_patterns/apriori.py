@@ -40,15 +40,40 @@ def generate_new_combinations(old_combinations):
 
     """
 
-    items_types_in_previous_step = np.unique(old_combinations.flatten())
-    for old_combination in old_combinations:
-        max_combination = old_combination[-1]
-        mask = items_types_in_previous_step > max_combination
-        valid_items = items_types_in_previous_step[mask]
-        old_tuple = tuple(old_combination)
-        for item in valid_items:
-            yield from old_tuple
-            yield item
+    def generate_pairs(x):
+        # Unfortunately there is no Numpy function to do that, and itertools.combinations
+        # is slower than this solution
+        length = len(x)
+        npairs = length * (length - 1) // 2
+        out = np.empty((npairs, 2), dtype=int)
+        mask = ~np.tri(length, dtype=bool)
+        out[:,0] = np.broadcast_to(x[:, None], (length, length))[mask]
+        out[:,1] = np.broadcast_to(x, (length, length))[mask]
+        return out
+
+    if old_combinations.shape[-1] == 1:
+        # If itemsets are of length 1, generate all pairs.
+        return generate_pairs(old_combinations[:, 0])
+
+    # Otherwise, we apply the same algorithm as in apriori-gen
+    # Find rows with the same (k-1)-prefix
+    rows_diff = np.diff(old_combinations[:, :-1], axis=0)
+    index_rows = 1 + np.where(np.any(rows_diff != 0, axis=1))[0]
+    change_prefix = np.zeros(2 + len(index_rows), dtype=int)
+    change_prefix[1:-1] = index_rows
+    change_prefix[-1] = len(old_combinations)
+    length_prefix = np.diff(change_prefix)
+    size_prefix = length_prefix * (length_prefix - 1) // 2
+    k_minus_one = old_combinations.shape[1] - 1
+    out = np.empty((size_prefix.sum(), 2 + k_minus_one), dtype=int)
+    current_index = 0
+    for i in range(len(length_prefix)):
+        # all rows from old_combinations between change_prefix[i] and
+        # change_prefix[i+1] share the same prefix
+        out[current_index:current_index+size_prefix[i], :k_minus_one] = old_combinations[change_prefix[i], :-1]
+        out[current_index:current_index+size_prefix[i], k_minus_one:] = generate_pairs(old_combinations[change_prefix[i]:change_prefix[i+1], -1])
+        current_index += size_prefix[i]
+    return out
 
 
 def generate_new_combinations_low_memory(old_combinations, X, min_support,
@@ -288,8 +313,6 @@ def apriori(df, min_support=0.5, use_colnames=False, max_len=None, verbose=0,
             max_itemset = next_max_itemset
         else:
             combin = generate_new_combinations(itemset_dict[max_itemset])
-            combin = np.fromiter(combin, dtype=int)
-            combin = combin.reshape(-1, next_max_itemset)
 
             if combin.size == 0:
                 break
