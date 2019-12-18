@@ -4,7 +4,6 @@
 #
 # License: BSD 3 clause
 
-import itertools
 import numpy as np
 import pandas as pd
 from ..frequent_patterns import fpcommon as fpc
@@ -43,26 +42,17 @@ def generate_new_combinations(old_combinations):
 
     """
 
-    if old_combinations.shape[1] == 1:
-        for pair in itertools.combinations(old_combinations.reshape(-1), 2):
-            yield from pair
-    else:
-        length = len(old_combinations)
-        i = 0
-        while i < length - 1:
-            *head_i, tail_i = old_combinations[i]
-            tails = [tail_i]
-            j = i + 1
-            while j < length:
-                *head_j, tail_j = old_combinations[j]
-                if head_i != head_j:
-                    break
-                tails.append(tail_j)
-                j = j + 1
-            for pair in itertools.combinations(tails, 2):
-                yield from head_i
-                yield from pair
-            i = j
+    length = len(old_combinations)
+    for i, old_combination in enumerate(old_combinations):
+        *head_i, _ = old_combination
+        j = i + 1
+        while j < length:
+            *head_j, tail_j = old_combinations[j]
+            if head_i != head_j:
+                break
+            yield from old_combination
+            yield tail_j
+            j = j + 1
 
 
 def generate_new_combinations_low_memory(old_combinations, X, min_support,
