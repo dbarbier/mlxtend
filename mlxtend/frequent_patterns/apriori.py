@@ -250,7 +250,7 @@ def apriori(df, min_support=0.5, use_colnames=False, max_len=None, verbose=0,
         is_sparse = True
     else:
         # dense DataFrame
-        X = df.values
+        X = np.asfortranarray(df.values)
         is_sparse = False
     support = _support(X, X.shape[0], is_sparse)
     ary_col_idx = np.arange(X.shape[1])
