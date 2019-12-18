@@ -6,6 +6,7 @@
 
 import numpy as np
 import pandas as pd
+import pygtrie
 from ..frequent_patterns import fpcommon as fpc
 
 
@@ -43,6 +44,7 @@ def generate_new_combinations(old_combinations):
     """
 
     length = len(old_combinations)
+    trie = pygtrie.Trie(list(zip(old_combinations, [1]*length)))
     for i, old_combination in enumerate(old_combinations):
         *head_i, _ = old_combination
         j = i + 1
@@ -50,8 +52,16 @@ def generate_new_combinations(old_combinations):
             *head_j, tail_j = old_combinations[j]
             if head_i != head_j:
                 break
-            yield from old_combination
-            yield tail_j
+            # Prune old_combination+(item,) if any subset is not frequent
+            candidate = tuple(old_combination) + (tail_j,)
+            for idx in range(len(candidate)):
+                test_candidate = list(candidate)
+                del test_candidate[idx]
+                if tuple(test_candidate) not in trie:
+                    # early exit from for-loop skips else clause just below
+                    break
+            else:
+                yield from candidate
             j = j + 1
 
 
