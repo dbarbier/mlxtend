@@ -6,8 +6,32 @@
 
 import numpy as np
 import pandas as pd
-import pygtrie
 from ..frequent_patterns import fpcommon as fpc
+
+
+class Trie:
+    __slots__ = ("root")
+
+    def __init__(self, combinations):
+        self.root = dict()
+        for path in combinations:
+            current = self.root
+            for p in path:
+                try:
+                    current = current[p]
+                except KeyError:
+                    next_node = dict()
+                    current[p] = next_node
+                    current = next_node
+
+    def __contains__(self, path):
+        current = self.root
+        try:
+            for p in path:
+                current = current[p]
+            return True
+        except KeyError:
+            return False
 
 
 def compute_supports(X, is_sparse, combin):
@@ -65,7 +89,7 @@ def generate_new_combinations(old_combinations):
     """
 
     length = len(old_combinations)
-    trie = pygtrie.Trie(list(zip(old_combinations, [1]*length)))
+    trie = Trie(old_combinations)
     for i, old_combination in enumerate(old_combinations):
         *head_i, _ = old_combination
         j = i + 1
