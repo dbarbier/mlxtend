@@ -40,7 +40,6 @@ fi
 conda install matplotlib
 conda install jupyter
 conda install pytest
-pip install pygtrie
 
 
 if [ "${IMAGE}" = "true" ]; then
