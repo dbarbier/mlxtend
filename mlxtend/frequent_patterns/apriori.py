@@ -9,61 +9,22 @@ import pandas as pd
 from ..frequent_patterns import fpcommon as fpc
 
 
-class _FixedLengthTrie:
-
-    """Fixed-length trie (prefix tree).
-
-    Parameters
-    ----------
-    combinations: list of itemsets
-        All combinations with enough support in the last step
-
-    Attributes
-    ----------
-    root : dict
-        Root node
-    """
-    __slots__ = ("root")
-
-    def __init__(self, combinations):
-        self.root = dict()
-        for combination in combinations:
-            current = self.root
-            for item in combination:
-                try:
-                    current = current[item]
-                except KeyError:
-                    next_node = dict()
-                    current[item] = next_node
-                    current = next_node
-
-    def __contains__(self, combination):
-        current = self.root
-        try:
-            for item in combination:
-                current = current[item]
-            return True
-        except KeyError:
-            return False
-
-
 def generate_new_combinations(old_combinations):
     """
     Generator of all combinations based on the last state of Apriori algorithm
     Parameters
     -----------
-    old_combinations: np.array
+    old_combinations: list of tuples
         All combinations with enough support in the last step
-        Combinations are represented by a matrix.
-        Number of columns is equal to the combination size
+        Combinations are represented by a list of tuples.
+        All tuples have the same length, which is equal to the combination size
         of the previous step.
-        Each row represents one combination
+        Each tuple represents one combination
         and contains item type ids in the ascending order
         ```
-               0        1
-        0      15       20
-        1      15       22
-        2      17       19
+           15       20
+           15       22
+           17       19
         ```
 
     Returns
@@ -80,7 +41,7 @@ def generate_new_combinations(old_combinations):
     """
 
     length = len(old_combinations)
-    trie = _FixedLengthTrie(old_combinations)
+    set_old_combinations = set(old_combinations)
     for i, old_combination in enumerate(old_combinations):
         head_i = list(old_combination[:-1])
         j = i + 1
@@ -89,13 +50,13 @@ def generate_new_combinations(old_combinations):
             if head_i != head_j:
                 break
             # Prune old_combination+(item,) if any subset is not frequent
-            candidate = tuple(old_combination) + (tail_j,)
+            candidate = old_combination + (tail_j,)
             # No need to check the last two values, because test_candidate
             # is then old_combinations[i] and old_combinations[j]
             for idx in range(len(candidate) - 2):
                 test_candidate = list(candidate)
                 del test_candidate[idx]
-                if test_candidate not in trie:
+                if tuple(test_candidate) not in set_old_combinations:
                     # early exit from for-loop skips else clause just below
                     break
             else:
@@ -220,16 +181,15 @@ def apriori(df, min_support=0.5, use_colnames=False, max_len=None, verbose=0,
         X = df.values
         is_sparse = False
     support = _support(X, X.shape[0], is_sparse)
-    ary_col_idx = np.arange(X.shape[1])
     support_dict = {1: support[support >= min_support]}
-    itemset_dict = {1: ary_col_idx[support >= min_support].reshape(-1, 1)}
+    itemset_dict = {1: [(idx,) for idx in np.where(support >= min_support)[0]]}
     max_itemset = 1
 
     while max_itemset and max_itemset < (max_len or float('inf')):
         next_max_itemset = max_itemset + 1
 
         combin = generate_new_combinations(itemset_dict[max_itemset])
-        # prune candidates with insufficient support
+        # count supports
         frequent_itemsets = []
         frequent_supports = []
         processed = 0
