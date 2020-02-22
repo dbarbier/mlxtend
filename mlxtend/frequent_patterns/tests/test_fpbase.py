@@ -82,32 +82,26 @@ class FPTestErrors(object):
         test_with_dataframe(df2)
 
         if Version(pandas_version) >= Version("1.00"):
-
-            sdf = df2.astype(pd.SparseDtype("int", np.nan)).sparse.to_coo()
+            sdf = df2.astype(pd.SparseDtype("int", fill_value=0))
+            test_with_dataframe(sdf)
+        elif Version(pandas_version) >= Version("0.24"):
+            sdf = df2.to_sparse()
+            test_with_dataframe(sdf)
+            sdf2 = df2.astype(pd.SparseDtype("int", fill_value=0))
+            test_with_dataframe(sdf2)
         else:
             sdf = df2.to_sparse()
-        test_with_dataframe(sdf)
-
-        if Version(pandas_version) >= Version("0.24") \
-                and Version(pandas_version) <= Version("1.00"):
-            sdf2 = df2.astype(pd.SparseDtype(int, fill_value=0))
-            test_with_dataframe(sdf2)
+            test_with_dataframe(sdf)
 
     def test_sparsedataframe_notzero_column(self):
+        if Version(pandas_version) >= Version('1.00'):
+            return
 
-        if Version(pandas_version) < Version('1.00'):
-            dfs = pd.SparseDataFrame(self.df)
-        else:
-            dfs = self.df.astype(pd.SparseDtype("int", np.nan)).sparse.to_coo()
-
+        dfs = pd.SparseDataFrame(self.df)
         dfs.columns = [i for i in range(len(dfs.columns))]
         self.fpalgo(dfs)
 
-        if Version(pandas_version) < Version('1.00'):
-            dfs = self.df.astype(pd.SparseDtype("int", np.nan)).sparse.to_coo()
-        else:
-            dfs = self.df.sparse.to_coo()
-
+        dfs = pd.SparseDataFrame(self.df)
         dfs.columns = [i+1 for i in range(len(dfs.columns))]
         assert_raises(ValueError,
                       'Due to current limitations in Pandas, '
@@ -159,7 +153,7 @@ class FPTestEx1(object):
     def test_sparse_deprecated(self):
         def test_with_fill_values(fill_value):
 
-            if Version(pandas_version) <= Version("1.00"):
+            if Version(pandas_version) < Version("1.00"):
                 sdf = self.df.to_sparse(fill_value=fill_value)
                 res_df = self.fpalgo(sdf, use_colnames=True)
                 assert res_df.values.shape == self.fpalgo(self.df).values.shape
